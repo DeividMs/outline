@@ -7,10 +7,6 @@ import { Strategy as GoogleStrategy } from "passport-google-oauth2";
 import { languages } from "@shared/i18n";
 import { slugifyDomain } from "@shared/utils/domains";
 import accountProvisioner from "@server/commands/accountProvisioner";
-import {
-  GmailAccountCreationError,
-  TeamDomainRequiredError,
-} from "@server/errors";
 import passportMiddleware from "@server/middlewares/passport";
 import { User } from "@server/models";
 import { AuthenticationResult } from "@server/types";
@@ -68,40 +64,30 @@ if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET) {
           const team = await getTeamFromContext(ctx);
           const client = getClientFromContext(ctx);
 
-          // No profile domain means personal gmail account
-          // No team implies the request came from the apex domain
-          // This combination is always an error
+          // Remove the check for personal Gmail accounts
+          /*
           if (!domain && !team) {
             const userExists = await User.count({
               where: { email: profile.email.toLowerCase() },
             });
 
-            // Users cannot create a team with personal gmail accounts
             if (!userExists) {
               throw GmailAccountCreationError();
             }
 
-            // To log-in with a personal account, users must specify a team subdomain
             throw TeamDomainRequiredError();
           }
+          */
 
-          // remove the TLD and form a subdomain from the remaining
-          // subdomains of the form "foo.bar.com" are allowed as primary Google Workspaces domains
-          // see https://support.google.com/nonprofits/thread/19685140/using-a-subdomain-as-a-primary-domain
           const subdomain = domain ? slugifyDomain(domain) : "";
-          const teamName = capitalize(subdomain);
+          const teamName = subdomain && subdomain.length >= 2 && subdomain.length <= 255 ? capitalize(subdomain) : "My Team";
 
-          // Request a larger size profile picture than the default by tweaking
-          // the query parameter.
           const avatarUrl = profile.picture.replace("=s96-c", "=s128-c");
           const locale = profile._json.locale;
           const language = locale
             ? languages.find((l) => l.startsWith(locale))
             : undefined;
 
-          // if a team can be inferred, we assume the user is only interested in signing into
-          // that team in particular; otherwise, we will do a best effort at finding their account
-          // or provisioning a new one (within AccountProvisioner)
           const result = await accountProvisioner({
             ip: ctx.ip,
             team: {
@@ -112,7 +98,7 @@ if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET) {
             },
             user: {
               email: profile.email,
-              name: profile.displayName,
+              name: profile.displayName && profile.displayName.length >= 2 && profile.displayName.length <= 255 ? profile.displayName : "Default User",
               language,
               avatarUrl,
             },
@@ -148,3 +134,4 @@ if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET) {
 }
 
 export default router;
+

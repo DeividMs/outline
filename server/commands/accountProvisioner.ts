@@ -3,7 +3,7 @@ import { readFile } from "fs-extra";
 import invariant from "invariant";
 import { CollectionPermission, UserRole } from "@shared/types";
 import WelcomeEmail from "@server/emails/templates/WelcomeEmail";
-import env from "@server/env";
+import env from "@server/env"; // Importar o env corretamente
 import {
   InvalidAuthenticationError,
   AuthenticationProviderDisabledError,
@@ -87,6 +87,23 @@ async function accountProvisioner({
   authenticationProvider: authenticationProviderParams,
   authentication: authenticationParams,
 }: Props): Promise<AccountProvisionerResult> {
+  // Utilizando o env diretamente, conforme o padrão observado
+  const limitsInvitationRequired = env.LIMITS_INVITATION_REQUIRED;
+
+  console.log("LIMITS_INVITATION_REQUIRED:", limitsInvitationRequired);
+
+  if (limitsInvitationRequired) {
+    
+    const userExists = await User.count({
+      where: { email: userParams.email.toLowerCase() },
+    });
+
+    if (!userExists) {
+      
+      throw new Error("Registro de novos usuários está desativado. Um convite é necessário.");
+    }
+  }
+
   let result;
   let emailMatchOnly;
 
@@ -202,7 +219,7 @@ async function provisionFirstCollection(team: Team, user: User) {
     const collection = await Collection.create(
       {
         name: "Welcome",
-        description: `This collection is a quick guide to what ${env.APP_NAME} is all about. Feel free to delete this collection once your team is up to speed with the basics!`,
+        description: `This collection é uma introdução rápida ao ${env.APP_NAME}. Sinta-se à vontade para deletar esta coleção assim que seu time estiver familiarizado com o básico!`,
         teamId: team.id,
         createdById: user.id,
         sort: Collection.DEFAULT_SORT,
@@ -213,7 +230,7 @@ async function provisionFirstCollection(team: Team, user: User) {
       }
     );
 
-    // For the first collection we go ahead and create some intitial documents to get
+    // For the first collection we go ahead and create some initial documents to get
     // the team started. You can edit these in /server/onboarding/x.md
     const onboardingDocs = [
       "Integrations & API",

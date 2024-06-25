@@ -148,6 +148,15 @@ export class Environment {
   public URL = (environment.URL ?? "").replace(/\/$/, "");
 
   /**
+   * Define if invitation is required for new user registration.
+   */
+  @IsBoolean()
+  public LIMITS_INVITATION_REQUIRED = this.toBoolean(
+    environment.LIMITS_INVITATION_REQUIRED ?? "false"
+  );
+
+
+  /**
    * If using a Cloudfront/Cloudflare distribution or similar it can be set below.
    * This will cause paths to javascript, stylesheets, and images to be updated to
    * the hostname defined in CDN_URL. In your CDN configuration the origin server
