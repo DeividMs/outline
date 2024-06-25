@@ -80,18 +80,23 @@ export default function Contents({ headings }: Props) {
 
 const StickyWrapper = styled.div`
   display: none;
-
   position: sticky;
   top: 90px;
   max-height: calc(100vh - 90px);
   width: ${EditorStyleHelper.tocWidth}px;
-
   padding: 0 16px;
   overflow-y: auto;
   border-radius: 8px;
-
   background: ${s("background")};
   transition: ${s("backgroundTransition")};
+  margin-top: calc(50px + 6vh);
+  margin-right: 52px;
+  min-width: 204px;
+  width: 228px;
+  min-height: 40px;
+  overflow-y: auto;
+  padding: 0 16px;
+  border-radius: 8px;
 
   @supports (backdrop-filter: blur(20px)) {
     backdrop-filter: blur(20px);
@@ -141,3 +146,4 @@ const List = styled.ol`
   padding: 0;
   list-style: none;
 `;
+
