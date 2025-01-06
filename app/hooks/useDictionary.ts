@@ -43,6 +43,7 @@ export default function useDictionary() {
       h1: t("Big heading"),
       h2: t("Medium heading"),
       h3: t("Small heading"),
+      h4: t("Extra small heading"),
       heading: t("Heading"),
       hr: t("Divider"),
       image: t("Image"),
@@ -76,6 +77,7 @@ export default function useDictionary() {
       sortAsc: t("Sort ascending"),
       sortDesc: t("Sort descending"),
       table: t("Table"),
+      exportAsCSV: t("Export as CSV"),
       toggleHeader: t("Toggle header"),
       mathInline: t("Math inline (LaTeX)"),
       mathBlock: t("Math block (LaTeX)"),
@@ -92,6 +94,7 @@ export default function useDictionary() {
       outdent: t("Outdent"),
       video: t("Video"),
       untitled: t("Untitled"),
+      none: t("None"),
     }),
     [t]
   );

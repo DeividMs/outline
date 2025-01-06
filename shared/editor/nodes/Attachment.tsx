@@ -1,4 +1,4 @@
-import Token from "markdown-it/lib/token";
+import { Token } from "markdown-it";
 import { DownloadIcon } from "outline-icons";
 import { NodeSpec, NodeType, Node as ProsemirrorNode } from "prosemirror-model";
 import { Command, NodeSelection } from "prosemirror-state";
@@ -63,7 +63,7 @@ export default class Attachment extends Node {
           download: node.attrs.title,
           "data-size": node.attrs.size,
         },
-        node.attrs.title,
+        String(node.attrs.title),
       ],
       toPlainText: (node) => node.attrs.title,
     };

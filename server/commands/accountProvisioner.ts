@@ -93,14 +93,14 @@ async function accountProvisioner({
   console.log("LIMITS_INVITATION_REQUIRED:", limitsInvitationRequired);
 
   if (limitsInvitationRequired) {
-    
     const userExists = await User.count({
       where: { email: userParams.email.toLowerCase() },
     });
 
     if (!userExists) {
-      
-      throw new Error("Registro de novos usuários está desativado. Um convite é necessário.");
+      throw new Error(
+        "Registro de novos usuários está desativado. Um convite é necessário."
+      );
     }
   }
 
@@ -219,7 +219,7 @@ async function provisionFirstCollection(team: Team, user: User) {
     const collection = await Collection.create(
       {
         name: "Welcome",
-        description: `This collection é uma introdução rápida ao ${env.APP_NAME}. Sinta-se à vontade para deletar esta coleção assim que seu time estiver familiarizado com o básico!`,
+        description: `This collection is a quick guide to what ${env.APP_NAME} is all about. Feel free to delete this collection once your team is up to speed with the basics!`,
         teamId: team.id,
         createdById: user.id,
         sort: Collection.DEFAULT_SORT,
@@ -261,7 +261,8 @@ async function provisionFirstCollection(team: Team, user: User) {
 
       document.content = await DocumentHelper.toJSON(document);
 
-      await document.publish(collection.createdById, collection.id, {
+      await document.publish(user, collection.id, {
+        silent: true,
         transaction,
       });
     }

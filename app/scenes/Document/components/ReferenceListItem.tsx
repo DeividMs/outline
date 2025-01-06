@@ -9,6 +9,7 @@ import { determineIconType } from "@shared/utils/icon";
 import Document from "~/models/Document";
 import Flex from "~/components/Flex";
 import Icon from "~/components/Icon";
+import { SidebarContextType } from "~/components/Sidebar/components/SidebarContext";
 import { hover } from "~/styles";
 import { sharedDocumentPath } from "~/utils/routeHelpers";
 
@@ -17,6 +18,7 @@ type Props = {
   document: Document | NavigationNode;
   anchor?: string;
   showCollection?: boolean;
+  sidebarContext?: SidebarContextType;
 };
 
 const DocumentLink = styled(Link)`
@@ -57,10 +59,13 @@ function ReferenceListItem({
   showCollection,
   anchor,
   shareId,
+  sidebarContext,
   ...rest
 }: Props) {
   const { icon, color } = document;
   const isEmoji = determineIconType(icon) === IconType.Emoji;
+  const title =
+    document instanceof Document ? document.titleWithDefault : document.title;
 
   return (
     <DocumentLink
@@ -71,6 +76,7 @@ function ReferenceListItem({
         hash: anchor ? `d-${anchor}` : undefined,
         state: {
           title: document.title,
+          sidebarContext,
         },
       }}
       {...rest}
@@ -81,9 +87,7 @@ function ReferenceListItem({
         ) : (
           <DocumentIcon />
         )}
-        <Title>
-          {isEmoji ? document.title.replace(icon!, "") : document.title}
-        </Title>
+        <Title>{isEmoji ? title.replace(icon!, "") : title}</Title>
       </Content>
     </DocumentLink>
   );

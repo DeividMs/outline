@@ -1,12 +1,13 @@
-import { prosemirrorToYDoc } from "@getoutline/y-prosemirror";
 import { JSDOM } from "jsdom";
 import compact from "lodash/compact";
 import flatten from "lodash/flatten";
+import isEqual from "lodash/isEqual";
 import uniq from "lodash/uniq";
 import { Node, DOMSerializer, Fragment, Mark } from "prosemirror-model";
 import * as React from "react";
 import { renderToString } from "react-dom/server";
 import styled, { ServerStyleSheet, ThemeProvider } from "styled-components";
+import { prosemirrorToYDoc } from "y-prosemirror";
 import * as Y from "yjs";
 import EditorContainer from "@shared/editor/components/Styles";
 import embeds from "@shared/editor/embeds";
@@ -15,13 +16,12 @@ import light from "@shared/styles/theme";
 import { ProsemirrorData } from "@shared/types";
 import { attachmentRedirectRegex } from "@shared/utils/ProsemirrorHelper";
 import { isRTL } from "@shared/utils/rtl";
+import { isInternalUrl } from "@shared/utils/urls";
 import { schema, parser } from "@server/editor";
 import Logger from "@server/logging/Logger";
 import { trace } from "@server/logging/tracing";
 import Attachment from "@server/models/Attachment";
-import User from "@server/models/User";
 import FileStorage from "@server/storage/files";
-import { TextHelper } from "./TextHelper";
 
 export type HTMLOptions = {
   /** A title, if it should be included */
@@ -36,7 +36,7 @@ export type HTMLOptions = {
   baseUrl?: string;
 };
 
-type MentionAttrs = {
+export type MentionAttrs = {
   type: string;
   label: string;
   modelId: string;
@@ -67,7 +67,6 @@ export class ProsemirrorHelper {
     //  the server we need to mimic this behavior.
     function urlsToEmbeds(node: Node): Node {
       if (node.type.name === "paragraph") {
-        // @ts-expect-error content
         for (const textNode of node.content.content) {
           for (const embed of embeds) {
             if (
@@ -89,8 +88,7 @@ export class ProsemirrorHelper {
       if (node.content) {
         const contentAsArray =
           node.content instanceof Fragment
-            ? // @ts-expect-error content
-              node.content.content
+            ? node.content.content
             : node.content;
         // @ts-expect-error content
         node.content = Fragment.fromArray(contentAsArray.map(urlsToEmbeds));
@@ -130,16 +128,29 @@ export class ProsemirrorHelper {
    * Returns an array of attributes of all mentions in the node.
    *
    * @param node The node to parse mentions from
+   * @param options Attributes to use for filtering mentions
    * @returns An array of mention attributes
    */
-  static parseMentions(doc: Node) {
+  static parseMentions(doc: Node, options?: Partial<MentionAttrs>) {
     const mentions: MentionAttrs[] = [];
 
-    doc.descendants((node: Node) => {
+    const isApplicableNode = (node: Node) => {
+      if (node.type.name !== "mention") {
+        return false;
+      }
+
       if (
-        node.type.name === "mention" &&
-        !mentions.some((m) => m.id === node.attrs.id)
+        (options?.type && options.type !== node.attrs.type) ||
+        (options?.modelId && options.modelId !== node.attrs.modelId)
       ) {
+        return false;
+      }
+
+      return !mentions.some((m) => m.id === node.attrs.id);
+    };
+
+    doc.descendants((node: Node) => {
+      if (isApplicableNode(node)) {
         mentions.push(node.attrs as MentionAttrs);
         return false;
       }
@@ -155,13 +166,88 @@ export class ProsemirrorHelper {
   }
 
   /**
+   * Find the nearest ancestor block node which contains the mention.
+   *
+   * @param doc The top-level doc node of a document / revision.
+   * @param mention The mention for which the ancestor node is needed.
+   * @returns A new top-level doc node with the ancestor node as the only child.
+   */
+  static getNodeForMentionEmail(doc: Node, mention: MentionAttrs) {
+    let blockNode: Node | undefined;
+    const potentialBlockNodes = [
+      "table",
+      "checkbox_list",
+      "heading",
+      "paragraph",
+    ];
+
+    const isNodeContainingMention = (node: Node) => {
+      let foundMention = false;
+
+      node.descendants((childNode: Node) => {
+        if (
+          childNode.type.name === "mention" &&
+          isEqual(childNode.attrs, mention)
+        ) {
+          foundMention = true;
+          return false;
+        }
+
+        // No need to traverse other descendants once we find the mention.
+        if (foundMention) {
+          return false;
+        }
+
+        return true;
+      });
+
+      return foundMention;
+    };
+
+    doc.descendants((node: Node) => {
+      // No need to traverse other descendants once we find the containing block node.
+      if (blockNode) {
+        return false;
+      }
+
+      if (potentialBlockNodes.includes(node.type.name)) {
+        if (isNodeContainingMention(node)) {
+          blockNode = node;
+        }
+        return false;
+      }
+
+      return true;
+    });
+
+    // Use the containing block node to maintain structure during serialization.
+    // Minify to include mentioned child only.
+    if (blockNode && !["heading", "paragraph"].includes(blockNode.type.name)) {
+      const children: Node[] = [];
+
+      blockNode.forEach((child: Node) => {
+        if (isNodeContainingMention(child)) {
+          children.push(child);
+        }
+      });
+
+      blockNode = blockNode.copy(Fragment.fromArray(children));
+    }
+
+    // Return a new top-level "doc" node to maintain structure during serialization.
+    return blockNode ? doc.copy(Fragment.fromArray([blockNode])) : undefined;
+  }
+
+  /**
    * Removes all marks from the node that match the given types.
    *
    * @param data The ProsemirrorData object to remove marks from
    * @param marks The mark types to remove
    * @returns The content with marks removed
    */
-  static removeMarks(data: ProsemirrorData, marks: string[]) {
+  static removeMarks(doc: Node | ProsemirrorData, marks: string[]) {
+    const json = "toJSON" in doc ? (doc.toJSON() as ProsemirrorData) : doc;
+
     function removeMarksInner(node: ProsemirrorData) {
       if (node.marks) {
         node.marks = node.marks.filter((mark) => !marks.includes(mark.type));
@@ -171,30 +257,45 @@ export class ProsemirrorHelper {
       }
       return node;
     }
-    return removeMarksInner(data);
+    return removeMarksInner(json);
   }
 
-  /**
-   * Replaces all template variables in the node.
-   *
-   * @param data The ProsemirrorData object to replace variables in
-   * @param user The user to use for replacing variables
-   * @returns The content with variables replaced
-   */
-  static replaceTemplateVariables(data: ProsemirrorData, user: User) {
-    function replace(node: ProsemirrorData) {
-      if (node.type === "text" && node.text) {
-        node.text = TextHelper.replaceTemplateVariables(node.text, user);
+  static async replaceInternalUrls(
+    doc: Node | ProsemirrorData,
+    basePath: string
+  ) {
+    const json = "toJSON" in doc ? (doc.toJSON() as ProsemirrorData) : doc;
+
+    if (basePath.endsWith("/")) {
+      throw new Error("internalUrlBase must not end with a slash");
+    }
+
+    function replaceUrl(url: string) {
+      return url.replace(`/doc/`, `${basePath}/doc/`);
+    }
+
+    function replaceInternalUrlsInner(node: ProsemirrorData) {
+      if (typeof node.attrs?.href === "string") {
+        node.attrs.href = replaceUrl(node.attrs.href);
+      } else if (node.marks) {
+        node.marks.forEach((mark) => {
+          if (
+            typeof mark.attrs?.href === "string" &&
+            isInternalUrl(mark.attrs?.href)
+          ) {
+            mark.attrs.href = replaceUrl(mark.attrs.href);
+          }
+        });
       }
 
       if (node.content) {
-        node.content.forEach(replace);
+        node.content.forEach(replaceInternalUrlsInner);
       }
 
       return node;
     }
 
-    return replace(data);
+    return replaceInternalUrlsInner(json);
   }
 
   /**
@@ -285,14 +386,20 @@ export class ProsemirrorHelper {
     doc.descendants((node) => {
       node.marks.forEach((mark) => {
         if (mark.type.name === "link") {
-          urls.push(mark.attrs.href);
+          if (mark.attrs.href) {
+            urls.push(mark.attrs.href);
+          }
         }
       });
       if (["image", "video"].includes(node.type.name)) {
-        urls.push(node.attrs.src);
+        if (node.attrs.src) {
+          urls.push(node.attrs.src);
+        }
       }
       if (node.type.name === "attachment") {
-        urls.push(node.attrs.href);
+        if (node.attrs.href) {
+          urls.push(node.attrs.href);
+        }
       }
     });
 
@@ -424,7 +531,7 @@ export class ProsemirrorHelper {
       // Inject Mermaid script
       if (mermaidElements.length) {
         element.innerHTML = `
-          import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@9/dist/mermaid.esm.min.mjs';
+          import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
           mermaid.initialize({
             startOnLoad: true,
             fontFamily: "inherit",

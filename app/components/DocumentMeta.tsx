@@ -128,15 +128,6 @@ const DocumentMeta: React.FC<Props> = ({
         <Time dateTime={publishedAt} addSuffix />
       </span>
     );
-  } else if (isDraft) {
-    content = (
-      <span>
-        {lastUpdatedByCurrentUser
-          ? t("You saved")
-          : t("{{ userName }} saved", { userName })}{" "}
-        <Time dateTime={updatedAt} addSuffix />
-      </span>
-    );
   } else {
     content = (
       <Modified highlight={modifiedSinceViewed && !lastUpdatedByCurrentUser}>
@@ -149,7 +140,7 @@ const DocumentMeta: React.FC<Props> = ({
   }
 
   const nestedDocumentsCount = collection
-    ? collection.getDocumentChildren(document.id).length
+    ? collection.getChildrenForDocument(document.id).length
     : 0;
   const canShowProgressBar = isTasks && !isTemplate;
 
@@ -194,9 +185,9 @@ const DocumentMeta: React.FC<Props> = ({
       {showCollection && collection && (
         <span>
           &nbsp;{t("in")}&nbsp;
-          <strong>
+          <Strong>
             <DocumentBreadcrumb document={document} onlyText />
-          </strong>
+          </Strong>
         </span>
       )}
       {showParentDocuments && nestedDocumentsCount > 0 && (
@@ -218,6 +209,10 @@ const DocumentMeta: React.FC<Props> = ({
     </Container>
   );
 };
+
+const Strong = styled.strong`
+  font-weight: 550;
+`;
 
 const Container = styled(Flex)<{ rtl?: boolean }>`
   justify-content: ${(props) => (props.rtl ? "flex-end" : "flex-start")};

@@ -9,8 +9,7 @@ import Notification from "~/models/Notification";
 import CommentEditor from "~/scenes/Document/components/CommentEditor";
 import useStores from "~/hooks/useStores";
 import { hover, truncateMultiline } from "~/styles";
-import Avatar from "../Avatar";
-import { AvatarSize } from "../Avatar/Avatar";
+import { Avatar, AvatarSize } from "../Avatar";
 import Flex from "../Flex";
 import Text from "../Text";
 import Time from "../Time";
@@ -53,11 +52,7 @@ function NotificationListItem({ notification, onNavigate }: Props) {
             <Text weight="bold">{notification.subject}</Text>
           </Text>
           <Text type="tertiary" size="xsmall">
-            <Time
-              dateTime={notification.createdAt}
-              tooltipDelay={1000}
-              addSuffix
-            />{" "}
+            <Time dateTime={notification.createdAt} addSuffix />{" "}
             {collection && <>&middot; {collection.name}</>}
           </Text>
           {notification.comment && (

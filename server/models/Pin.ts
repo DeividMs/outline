@@ -5,6 +5,7 @@ import {
   ForeignKey,
   BelongsTo,
   Table,
+  Length,
 } from "sequelize-typescript";
 import Collection from "./Collection";
 import Document from "./Document";
@@ -19,6 +20,12 @@ class Pin extends IdModel<
   InferAttributes<Pin>,
   Partial<InferCreationAttributes<Pin>>
 > {
+  static eventNamespace = "pins";
+
+  @Length({
+    max: 256,
+    msg: `index must be 256 characters or less`,
+  })
   @Column
   index: string | null;
 

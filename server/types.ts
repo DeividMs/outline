@@ -35,7 +35,7 @@ import type {
   View,
   Notification,
   Share,
-  GroupPermission,
+  GroupMembership,
 } from "./models";
 
 export enum AuthenticationType {
@@ -49,8 +49,8 @@ export type AuthenticationResult = AccountProvisionerResult & {
 
 export type Authentication = {
   user: User;
-  token: string;
-  type: AuthenticationType;
+  token?: string;
+  type?: AuthenticationType;
 };
 
 export type Pagination = {
@@ -77,18 +77,26 @@ export interface APIContext<ReqT = BaseReq, ResT = BaseRes>
     DefaultContext & IRouterParamContext<AppState>,
     ResT
   > {
-  /** Typed and validated version of request, consisting of validated body, query, etc */
+  /** Typed and validated version of request, consisting of validated body, query, etc. */
   input: ReqT;
+
+  /** The current request's context, which is passed to database mutations. */
+  context: {
+    transaction?: Transaction;
+    auth: Authentication;
+    ip?: string;
+  };
 }
 
 type BaseEvent<T extends Model> = {
   teamId: string;
   actorId: string;
-  ip: string;
+  ip: string | null;
+  authType?: AuthenticationType | null;
   changes?: {
     attributes: Partial<InferAttributes<T>>;
     previous: Partial<InferAttributes<T>>;
-  };
+  } | null;
 };
 
 export type ApiKeyEvent = BaseEvent<ApiKey> & {
@@ -175,13 +183,22 @@ export type DocumentEvent = BaseEvent<Document> &
           | "documents.delete"
           | "documents.permanent_delete"
           | "documents.archive"
-          | "documents.unarchive"
           | "documents.restore";
         documentId: string;
         collectionId: string;
         data: {
           title: string;
           source?: "import";
+        };
+      }
+    | {
+        name: "documents.unarchive";
+        documentId: string;
+        collectionId: string;
+        data: {
+          title: string;
+          /** Id of collection from which the document is unarchived */
+          sourceCollectionId: string;
         };
       }
     | {
@@ -219,6 +236,12 @@ export type DocumentEvent = BaseEvent<Document> &
       }
   );
 
+export type EmptyTrashEvent = {
+  name: "documents.empty_trash";
+  teamId: string;
+  actorId: string;
+};
+
 export type RevisionEvent = BaseEvent<Revision> & {
   name: "revisions.create";
   documentId: string;
@@ -246,11 +269,11 @@ export type CollectionUserEvent = BaseEvent<UserMembership> & {
   };
 };
 
-export type CollectionGroupEvent = BaseEvent<GroupPermission> & {
+export type CollectionGroupEvent = BaseEvent<GroupMembership> & {
   name: "collections.add_group" | "collections.remove_group";
   collectionId: string;
   modelId: string;
-  data: { name: string };
+  data: { name: string; membershipId: string };
 };
 
 export type DocumentUserEvent = BaseEvent<UserMembership> & {
@@ -265,6 +288,18 @@ export type DocumentUserEvent = BaseEvent<UserMembership> & {
   };
 };
 
+export type DocumentGroupEvent = BaseEvent<GroupMembership> & {
+  name: "documents.add_group" | "documents.remove_group";
+  documentId: string;
+  modelId: string;
+  data: {
+    name: string;
+    isNew?: boolean;
+    permission?: DocumentPermission;
+    membershipId: string;
+  };
+};
+
 export type CollectionEvent = BaseEvent<Collection> &
   (
     | {
@@ -276,10 +311,15 @@ export type CollectionEvent = BaseEvent<Collection> &
         };
       }
     | {
-        name: "collections.update" | "collections.delete";
+        name:
+          | "collections.update"
+          | "collections.delete"
+          | "collections.archive"
+          | "collections.restore";
         collectionId: string;
         data: {
           name: string;
+          archivedAt: string;
         };
       }
     | {
@@ -303,9 +343,6 @@ export type GroupUserEvent = BaseEvent<UserMembership> & {
   name: "groups.add_user" | "groups.remove_user";
   userId: string;
   modelId: string;
-  data: {
-    name: string;
-  };
 };
 
 export type GroupEvent = BaseEvent<Group> &
@@ -314,9 +351,6 @@ export type GroupEvent = BaseEvent<Group> &
     | {
         name: "groups.create" | "groups.delete" | "groups.update";
         modelId: string;
-        data: {
-          name: string;
-        };
       }
   );
 
@@ -341,8 +375,17 @@ export type CommentUpdateEvent = BaseEvent<Comment> & {
   modelId: string;
   documentId: string;
   actorId: string;
-  data: {
+  data?: {
     newMentionIds: string[];
+  };
+};
+
+export type CommentReactionEvent = BaseEvent<Comment> & {
+  name: "comments.add_reaction" | "comments.remove_reaction";
+  modelId: string;
+  documentId: string;
+  data: {
+    emoji: string;
   };
 };
 
@@ -360,7 +403,8 @@ export type CommentEvent =
       documentId: string;
       actorId: string;
       collectionId: string;
-    });
+    })
+  | CommentReactionEvent;
 
 export type StarEvent = BaseEvent<Star> & {
   name: "stars.create" | "stars.update" | "stars.delete";
@@ -374,9 +418,6 @@ export type ShareEvent = BaseEvent<Share> & {
   modelId: string;
   documentId: string;
   collectionId?: string;
-  data: {
-    name: string;
-  };
 };
 
 export type SubscriptionEvent = BaseEvent<Subscription> & {
@@ -428,6 +469,7 @@ export type Event =
   | AuthenticationProviderEvent
   | DocumentEvent
   | DocumentUserEvent
+  | DocumentGroupEvent
   | PinEvent
   | CommentEvent
   | StarEvent
@@ -445,7 +487,8 @@ export type Event =
   | UserMembershipEvent
   | ViewEvent
   | WebhookSubscriptionEvent
-  | NotificationEvent;
+  | NotificationEvent
+  | EmptyTrashEvent;
 
 export type NotificationMetadata = {
   notificationId?: string;
@@ -525,3 +568,7 @@ export type UnfurlSignature = (
 ) => Promise<Unfurl | void>;
 
 export type UninstallSignature = (integration: Integration) => Promise<void>;
+
+export type Replace<T, K extends keyof T, N extends string> = {
+  [P in keyof T as P extends K ? N : P]: T[P extends K ? K : P];
+};

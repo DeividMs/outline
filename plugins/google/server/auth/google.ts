@@ -69,6 +69,12 @@ if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET) {
           if (!domain && !team) {
             const userExists = await User.count({
               where: { email: profile.email.toLowerCase() },
+              include: [
+                {
+                  association: "team",
+                  required: true,
+                },
+              ],
             });
 
             if (!userExists) {

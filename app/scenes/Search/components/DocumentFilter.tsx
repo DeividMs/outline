@@ -6,7 +6,9 @@ import { StyledButton } from "~/components/FilterOptions";
 import Tooltip from "~/components/Tooltip";
 
 type Props = {
+  /** The currently selected document */
   document: Document;
+  /** Callback to remove the document filter */
   onClick: React.MouseEventHandler;
 };
 
@@ -15,7 +17,7 @@ export function DocumentFilter(props: Props) {
 
   return (
     <div>
-      <Tooltip content={t("Remove document filter")} delay={350}>
+      <Tooltip content={t("Remove document filter")}>
         <StyledButton onClick={props.onClick} icon={<CloseIcon />} neutral>
           {props.document.title}
         </StyledButton>

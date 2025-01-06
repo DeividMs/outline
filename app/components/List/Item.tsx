@@ -4,6 +4,7 @@ import {
 } from "@getoutline/react-roving-tabindex";
 import { LocationDescriptor } from "history";
 import * as React from "react";
+import scrollIntoView from "scroll-into-view-if-needed";
 import styled, { useTheme } from "styled-components";
 import { s, ellipsis } from "@shared/styles";
 import Flex from "~/components/Flex";
@@ -47,22 +48,33 @@ const ListItem = (
     keyboardNavigation,
     ...rest
   }: Props,
-  ref?: React.Ref<HTMLAnchorElement>
+  ref: React.RefObject<HTMLAnchorElement>
 ) => {
   const theme = useTheme();
   const compact = !subtitle;
 
-  let itemRef: React.Ref<HTMLAnchorElement> =
+  let itemRef: React.RefObject<HTMLAnchorElement> =
     React.useRef<HTMLAnchorElement>(null);
   if (ref) {
     itemRef = ref;
   }
 
   const { focused, ...rovingTabIndex } = useRovingTabIndex(
-    itemRef as React.RefObject<HTMLAnchorElement>,
+    itemRef,
     keyboardNavigation || to ? false : true
   );
-  useFocusEffect(focused, itemRef as React.RefObject<HTMLAnchorElement>);
+  useFocusEffect(focused, itemRef);
+
+  const handleFocus = React.useCallback(() => {
+    if (itemRef.current) {
+      scrollIntoView(itemRef.current, {
+        scrollMode: "if-needed",
+        behavior: "auto",
+        block: "center",
+        boundary: window.document.body,
+      });
+    }
+  }, [itemRef]);
 
   const content = (selected: boolean) => (
     <>
@@ -110,6 +122,10 @@ const ListItem = (
           }
           rovingTabIndex.onKeyDown(ev);
         }}
+        onFocus={(ev) => {
+          rovingTabIndex.onFocus(ev);
+          handleFocus();
+        }}
         as={NavLink}
         to={to}
       >
@@ -126,13 +142,21 @@ const ListItem = (
       $hover={!!rest.onClick}
       {...rest}
       {...rovingTabIndex}
-      onClick={(ev) => {
-        rest.onClick?.(ev);
-        rovingTabIndex.onClick(ev);
-      }}
+      onClick={
+        rest.onClick
+          ? (ev) => {
+              rest.onClick?.(ev);
+              rovingTabIndex.onClick(ev);
+            }
+          : undefined
+      }
       onKeyDown={(ev) => {
         rest.onKeyDown?.(ev);
         rovingTabIndex.onKeyDown(ev);
+      }}
+      onFocus={(ev) => {
+        rovingTabIndex.onFocus(ev);
+        handleFocus();
       }}
     >
       {content(false)}
@@ -168,7 +192,7 @@ const Wrapper = styled.a<{
   &:focus,
   &:focus-within {
     background: ${(props) =>
-      props.$hover ? props.theme.secondaryBackground : "inherit"};
+      props.$hover ? props.theme.backgroundSecondary : "inherit"};
   }
 
   cursor: ${(props) =>

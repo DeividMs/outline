@@ -1,4 +1,4 @@
-import Token from "markdown-it/lib/token";
+import { Token } from "markdown-it";
 import { NodeSpec } from "prosemirror-model";
 import { Plugin } from "prosemirror-state";
 import { DecorationSet, Decoration, EditorView } from "prosemirror-view";
@@ -104,6 +104,10 @@ export default class TableHeader extends Node {
             },
           },
           decorations: (state) => {
+            if (!this.editor.view?.editable) {
+              return;
+            }
+
             const { doc } = state;
             const decorations: Decoration[] = [];
             const cols = getCellsInRow(0)(state);

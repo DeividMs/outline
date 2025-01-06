@@ -1,6 +1,7 @@
 import * as React from "react";
+import { EditorStyleHelper } from "../../styles/EditorStyleHelper";
 
-type DragDirection = "left" | "right";
+type DragDirection = "left" | "right" | "bottom";
 
 type SizeState = { width: number; height?: number };
 
@@ -58,25 +59,45 @@ export default function useDragResize(props: Params): ReturnValue {
   const handlePointerMove = (event: PointerEvent) => {
     event.preventDefault();
 
-    let diff;
+    let diffX, diffY;
     if (dragging === "left") {
-      diff = offset - event.pageX;
+      diffX = offset - event.pageX;
+    } else if (dragging === "right") {
+      diffX = event.pageX - offset;
     } else {
-      diff = event.pageX - offset;
+      diffY = event.pageY - offset;
     }
 
-    const gridWidth = (props.gridSnap / 100) * maxWidth;
-    const newWidth = sizeAtDragStart.width + diff * 2;
-    const widthOnGrid = Math.round(newWidth / gridWidth) * gridWidth;
-    const constrainedWidth = constrainWidth(widthOnGrid, maxWidth);
-    const aspectRatio = props.naturalHeight / props.naturalWidth;
+    if (diffX && sizeAtDragStart.width) {
+      const gridWidth = (props.gridSnap / 100) * maxWidth;
+      const newWidth = sizeAtDragStart.width + diffX * 2;
+      const widthOnGrid = Math.round(newWidth / gridWidth) * gridWidth;
+      const constrainedWidth = constrainWidth(widthOnGrid, maxWidth);
+      const aspectRatio = props.naturalHeight / props.naturalWidth;
 
-    setSize({
-      width: constrainedWidth,
-      height: props.naturalWidth
-        ? Math.round(constrainedWidth * aspectRatio)
-        : undefined,
-    });
+      setSize({
+        width:
+          // If the natural width is the same as the constrained width, use the natural width -
+          // special case for images resized to the full width of the editor.
+          constrainedWidth === Math.min(newWidth, maxWidth)
+            ? props.naturalWidth
+            : constrainedWidth,
+        height: props.naturalWidth
+          ? Math.round(constrainedWidth * aspectRatio)
+          : undefined,
+      });
+    }
+
+    if (diffY && sizeAtDragStart.height) {
+      const gridHeight = (props.gridSnap / 100) * maxWidth;
+      const newHeight = sizeAtDragStart.height + diffY;
+      const heightOnGrid = Math.round(newHeight / gridHeight) * gridHeight;
+
+      setSize((state) => ({
+        ...state,
+        height: heightOnGrid,
+      }));
+    }
   };
 
   const handlePointerUp = (event: PointerEvent) => {
@@ -87,7 +108,8 @@ export default function useDragResize(props: Params): ReturnValue {
     setDragging(undefined);
     props.onChangeSize?.(size);
 
-    document.removeEventListener("mousemove", handlePointerMove);
+    document.removeEventListener("pointerup", handlePointerUp);
+    document.removeEventListener("pointermove", handlePointerMove);
   };
 
   const handleKeyDown = (event: KeyboardEvent) => {
@@ -112,14 +134,19 @@ export default function useDragResize(props: Params): ReturnValue {
             getComputedStyle(props.ref.current).getPropertyValue(
               "--document-width"
             )
-          )
+          ) -
+          EditorStyleHelper.padding * 2
         : Infinity;
       setMaxWidth(max);
       setSizeAtDragStart({
         width: constrainWidth(size.width, max),
         height: size.height,
       });
-      setOffset(event.pageX);
+      setOffset(
+        dragDirection === "left" || dragDirection === "right"
+          ? event.pageX
+          : event.pageY
+      );
       setDragging(dragDirection);
     };
 
@@ -129,7 +156,8 @@ export default function useDragResize(props: Params): ReturnValue {
     }
 
     if (dragging) {
-      document.body.style.cursor = "ew-resize";
+      document.body.style.cursor =
+        dragging === "left" || dragging === "right" ? "ew-resize" : "ns-resize";
       document.addEventListener("keydown", handleKeyDown);
       document.addEventListener("pointermove", handlePointerMove);
       document.addEventListener("pointerup", handlePointerUp);

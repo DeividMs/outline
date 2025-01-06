@@ -1,12 +1,10 @@
 import * as React from "react";
 import { NotificationEventType } from "@shared/types";
-import { Day } from "@shared/utils/time";
 import { Collection, Comment, Document } from "@server/models";
-import HTMLHelper from "@server/models/helpers/HTMLHelper";
 import NotificationSettingsHelper from "@server/models/helpers/NotificationSettingsHelper";
 import { ProsemirrorHelper } from "@server/models/helpers/ProsemirrorHelper";
-import { TextHelper } from "@server/models/helpers/TextHelper";
-import BaseEmail, { EmailProps } from "./BaseEmail";
+import { can } from "@server/policies";
+import BaseEmail, { EmailMessageCategory, EmailProps } from "./BaseEmail";
 import Body from "./components/Body";
 import Button from "./components/Button";
 import Diff from "./components/Diff";
@@ -26,7 +24,7 @@ type InputProps = EmailProps & {
 
 type BeforeSend = {
   document: Document;
-  collection: Collection;
+  collection: Collection | null;
   body: string | undefined;
   isFirstComment: boolean;
   isReply: boolean;
@@ -43,6 +41,10 @@ export default class CommentCreatedEmail extends BaseEmail<
   InputProps,
   BeforeSend
 > {
+  protected get category() {
+    return EmailMessageCategory.Notification;
+  }
+
   protected async beforeSend(props: InputProps) {
     const { documentId, commentId } = props;
     const document = await Document.unscoped().findByPk(documentId);
@@ -50,13 +52,12 @@ export default class CommentCreatedEmail extends BaseEmail<
       return false;
     }
 
-    const collection = await document.$get("collection");
-    if (!collection) {
-      return false;
-    }
-
-    const comment = await Comment.findByPk(commentId);
-    if (!comment) {
+    const [comment, team, collection] = await Promise.all([
+      Comment.findByPk(commentId),
+      document.$get("team"),
+      document.$get("collection"),
+    ]);
+    if (!comment || !team) {
       return false;
     }
 
@@ -66,25 +67,10 @@ export default class CommentCreatedEmail extends BaseEmail<
       order: [["createdAt", "ASC"]],
     });
 
-    let body;
-    let content = ProsemirrorHelper.toHTML(
-      ProsemirrorHelper.toProsemirror(comment.data),
-      {
-        centered: false,
-      }
+    const body = await this.htmlForData(
+      team,
+      ProsemirrorHelper.toProsemirror(comment.data)
     );
-
-    content = await TextHelper.attachmentsToSignedUrls(
-      content,
-      document.teamId,
-      (4 * Day) / 1000
-    );
-
-    if (content) {
-      // inline all css so that it works in as many email providers as possible.
-      body = await HTMLHelper.inlineCSS(content);
-    }
-
     const isReply = !!comment.parentCommentId;
     const isFirstComment = firstComment?.id === commentId;
 
@@ -119,6 +105,15 @@ export default class CommentCreatedEmail extends BaseEmail<
     return actorName;
   }
 
+  protected replyTo({ notification }: Props) {
+    if (notification?.user && notification.actor?.email) {
+      if (can(notification.user, "readEmail", notification.actor)) {
+        return notification.actor.email;
+      }
+    }
+    return;
+  }
+
   protected renderAsText({
     actorName,
     teamUrl,
@@ -130,7 +125,7 @@ export default class CommentCreatedEmail extends BaseEmail<
     return `
 ${actorName} ${isReply ? "replied to a thread in" : "commented on"} "${
       document.title
-    }"${collection.name ? `in the ${collection.name} collection` : ""}.
+    }"${collection?.name ? `in the ${collection.name} collection` : ""}.
 
 Open Thread: ${teamUrl}${document.url}?commentId=${commentId}
 `;
@@ -161,7 +156,7 @@ Open Thread: ${teamUrl}${document.url}?commentId=${commentId}
           <p>
             {actorName} {isReply ? "replied to a thread in" : "commented on"}{" "}
             <a href={threadLink}>{document.title}</a>{" "}
-            {collection.name ? `in the ${collection.name} collection` : ""}.
+            {collection?.name ? `in the ${collection.name} collection` : ""}.
           </p>
           {body && (
             <>

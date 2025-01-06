@@ -14,7 +14,6 @@ import NavLink, { Props as NavLinkProps } from "./NavLink";
 
 export type DragObject = NavigationNode & {
   depth: number;
-  active: boolean;
   collectionId: string;
 };
 
@@ -79,7 +78,6 @@ function SidebarLink(
 
   const activeStyle = React.useMemo(
     () => ({
-      fontWeight: 600,
       color: theme.text,
       background: theme.sidebarActiveBackground,
       ...style,
@@ -203,10 +201,10 @@ const Link = styled(NavLink)<{
   display: flex;
   position: relative;
   text-overflow: ellipsis;
+  font-weight: 475;
   padding: 6px 16px;
   border-radius: 4px;
   min-height: 32px;
-  transition: background 50ms, color 50ms;
   user-select: none;
   background: ${(props) =>
     props.$isActiveDrop ? props.theme.slateDark : "inherit"};

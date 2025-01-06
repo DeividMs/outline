@@ -13,6 +13,15 @@ export enum StatusFilter {
   Draft = "draft",
 }
 
+export enum CollectionStatusFilter {
+  Archived = "archived",
+}
+
+export enum CommentStatusFilter {
+  Resolved = "resolved",
+  Unresolved = "unresolved",
+}
+
 export enum Client {
   Web = "web",
   Desktop = "desktop",
@@ -83,6 +92,7 @@ export enum IntegrationService {
   Slack = "slack",
   GoogleAnalytics = "google-analytics",
   Matomo = "matomo",
+  Umami = "umami",
   GitHub = "github",
 }
 
@@ -92,6 +102,7 @@ export type UserCreatableIntegrationService = Extract<
   | IntegrationService.Grist
   | IntegrationService.GoogleAnalytics
   | IntegrationService.Matomo
+  | IntegrationService.Umami
 >;
 
 export const UserCreatableIntegrationService = {
@@ -99,6 +110,7 @@ export const UserCreatableIntegrationService = {
   Grist: IntegrationService.Grist,
   GoogleAnalytics: IntegrationService.GoogleAnalytics,
   Matomo: IntegrationService.Matomo,
+  Umami: IntegrationService.Umami,
 } as const;
 
 export enum CollectionPermission {
@@ -124,7 +136,7 @@ export type IntegrationSettings<T> = T extends IntegrationType.Embed
       };
     }
   : T extends IntegrationType.Analytics
-  ? { measurementId: string; instanceUrl?: string }
+  ? { measurementId: string; instanceUrl?: string; scriptName?: string }
   : T extends IntegrationType.Post
   ? { url: string; channel: string; channelId: string }
   : T extends IntegrationType.Command
@@ -156,6 +168,10 @@ export enum UserPreference {
   SeamlessEdit = "seamlessEdit",
   /** Whether documents should start in full-width mode. */
   FullWidthDocuments = "fullWidthDocuments",
+  /** Whether to sort the comments by their order in the document. */
+  SortCommentsByOrderInDocument = "sortCommentsByOrderInDocument",
+  /** Whether smart text replacements should be enabled. */
+  EnableSmartText = "enableSmartText",
 }
 
 export type UserPreferences = { [key in UserPreference]?: boolean };
@@ -201,6 +217,10 @@ export enum TeamPreference {
   MembersCanInvite = "membersCanInvite",
   /** Whether members can create API keys. */
   MembersCanCreateApiKey = "membersCanCreateApiKey",
+  /** Whether members can delete their user account. */
+  MembersCanDeleteAccount = "membersCanDeleteAccount",
+  /** Whether notification emails include document and comment content. */
+  PreviewsInEmails = "previewsInEmails",
   /** Whether users can comment on documents. */
   Commenting = "commenting",
   /** The custom theme for the team. */
@@ -215,6 +235,8 @@ export type TeamPreferences = {
   [TeamPreference.ViewersCanExport]?: boolean;
   [TeamPreference.MembersCanInvite]?: boolean;
   [TeamPreference.MembersCanCreateApiKey]?: boolean;
+  [TeamPreference.MembersCanDeleteAccount]?: boolean;
+  [TeamPreference.PreviewsInEmails]?: boolean;
   [TeamPreference.Commenting]?: boolean;
   [TeamPreference.CustomTheme]?: Partial<CustomTheme>;
   [TeamPreference.TocPosition]?: TOCPosition;
@@ -223,6 +245,8 @@ export type TeamPreferences = {
 export enum NavigationNodeType {
   Collection = "collection",
   Document = "document",
+  UserMembership = "userMembership",
+  GroupMembership = "groupMembership",
 }
 
 export type NavigationNode = {
@@ -253,6 +277,7 @@ export enum NotificationEventType {
   CreateRevision = "revisions.create",
   CreateCollection = "collections.create",
   CreateComment = "comments.create",
+  ResolveComment = "comments.resolve",
   MentionedInDocument = "documents.mentioned",
   MentionedInComment = "comments.mentioned",
   InviteAccepted = "emails.invite_accepted",
@@ -275,20 +300,23 @@ export type NotificationSettings = {
     | boolean;
 };
 
-export const NotificationEventDefaults = {
-  [NotificationEventType.PublishDocument]: false,
-  [NotificationEventType.UpdateDocument]: true,
-  [NotificationEventType.CreateCollection]: false,
-  [NotificationEventType.CreateComment]: true,
-  [NotificationEventType.MentionedInDocument]: true,
-  [NotificationEventType.MentionedInComment]: true,
-  [NotificationEventType.InviteAccepted]: true,
-  [NotificationEventType.Onboarding]: true,
-  [NotificationEventType.Features]: true,
-  [NotificationEventType.ExportCompleted]: true,
-  [NotificationEventType.AddUserToDocument]: true,
-  [NotificationEventType.AddUserToCollection]: true,
-};
+export const NotificationEventDefaults: Record<NotificationEventType, boolean> =
+  {
+    [NotificationEventType.PublishDocument]: false,
+    [NotificationEventType.UpdateDocument]: true,
+    [NotificationEventType.CreateCollection]: false,
+    [NotificationEventType.CreateComment]: true,
+    [NotificationEventType.ResolveComment]: true,
+    [NotificationEventType.CreateRevision]: false,
+    [NotificationEventType.MentionedInDocument]: true,
+    [NotificationEventType.MentionedInComment]: true,
+    [NotificationEventType.InviteAccepted]: true,
+    [NotificationEventType.Onboarding]: true,
+    [NotificationEventType.Features]: true,
+    [NotificationEventType.ExportCompleted]: true,
+    [NotificationEventType.AddUserToDocument]: true,
+    [NotificationEventType.AddUserToCollection]: true,
+  };
 
 export enum UnfurlResourceType {
   OEmbed = "oembed",
@@ -316,6 +344,8 @@ export type UnfurlResponse = {
     type: UnfurlResourceType.Mention;
     /** Mentioned user's name */
     name: string;
+    /** Mentioned user's email */
+    email: string | null;
     /** Mentioned user's avatar URL */
     avatarUrl: string | null;
     /** Used to create mentioned user's avatar if no avatar URL provided */
@@ -409,7 +439,7 @@ export type ProsemirrorDoc = {
 };
 
 export enum IconType {
-  Outline = "outline",
+  SVG = "svg",
   Emoji = "emoji",
 }
 
@@ -446,4 +476,9 @@ export type EmojiVariants = {
   [EmojiSkinTone.Medium]?: Emoji;
   [EmojiSkinTone.MediumDark]?: Emoji;
   [EmojiSkinTone.Dark]?: Emoji;
+};
+
+export type ReactionSummary = {
+  emoji: string;
+  userIds: string[];
 };

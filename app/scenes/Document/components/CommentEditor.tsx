@@ -1,5 +1,7 @@
+import { observer } from "mobx-react";
 import * as React from "react";
 import { basicExtensions, withComments } from "@shared/editor/nodes";
+import HardBreak from "@shared/editor/nodes/HardBreak";
 import Editor, { Props as EditorProps } from "~/components/Editor";
 import type { Editor as SharedEditor } from "~/editor";
 import ClipboardTextSerializer from "~/editor/extensions/ClipboardTextSerializer";
@@ -13,6 +15,7 @@ import useCurrentUser from "~/hooks/useCurrentUser";
 
 const extensions = [
   ...withComments(basicExtensions),
+  HardBreak,
   SmartText,
   PasteHandler,
   ClipboardTextSerializer,
@@ -34,4 +37,4 @@ const CommentEditor = (
   );
 };
 
-export default React.forwardRef(CommentEditor);
+export default observer(React.forwardRef(CommentEditor));

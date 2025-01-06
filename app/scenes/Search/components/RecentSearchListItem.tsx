@@ -33,7 +33,7 @@ function RecentSearchListItem({ searchQuery }: Props) {
       {...rovingTabIndex}
     >
       {searchQuery.query}
-      <Tooltip content={t("Remove search")} delay={150}>
+      <Tooltip content={t("Remove search")}>
         <RemoveButton
           aria-label={t("Remove search")}
           onClick={async (ev) => {
@@ -81,7 +81,7 @@ const RecentSearch = styled(Link)`
   &:focus,
   &:${hover} {
     color: ${s("text")};
-    background: ${s("secondaryBackground")};
+    background: ${s("backgroundSecondary")};
 
     ${RemoveButton} {
       opacity: 1;

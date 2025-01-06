@@ -8,6 +8,13 @@ export function homePath(): string {
   return env.ROOT_SHARE_ID ? "/" : "/home";
 }
 
+export function logoutPath() {
+  return {
+    pathname: "/",
+    search: "logout=true",
+  };
+}
+
 export function draftsPath(): string {
   return "/drafts";
 }
@@ -25,7 +32,9 @@ export function settingsPath(section?: string): string {
 }
 
 export function commentPath(document: Document, comment: Comment): string {
-  return `${documentPath(document)}?commentId=${comment.id}`;
+  return `${documentPath(document)}?commentId=${comment.id}${
+    comment.isResolved ? "&resolved=" : ""
+  }`;
 }
 
 export function collectionPath(url: string, section?: string): string {
@@ -81,8 +90,10 @@ export function updateDocumentPath(oldUrl: string, document: Document): string {
   );
 }
 
-export function newTemplatePath(collectionId: string) {
-  return settingsPath("templates") + `/new?collectionId=${collectionId}`;
+export function newTemplatePath(collectionId?: string) {
+  return collectionId
+    ? settingsPath("templates") + `/new?collectionId=${collectionId}`
+    : `${settingsPath("templates")}/new`;
 }
 
 export function newDocumentPath(

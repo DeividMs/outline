@@ -83,6 +83,7 @@ export default () =>
         injectRegister: "inline",
         registerType: "autoUpdate",
         workbox: {
+          maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
           globPatterns: ["**/*.{js,css,ico,png,svg}"],
           navigateFallback: null,
           modifyURLPrefix: {
@@ -158,7 +159,7 @@ export default () =>
     build: {
       outDir: "./build/app",
       manifest: true,
-      sourcemap: true,
+      sourcemap: process.env.CI ? false : "hidden",
       minify: "terser",
       // Prevent asset inling as it does not conform to CSP rules
       assetsInlineLimit: 0,
@@ -173,10 +174,10 @@ export default () =>
           index: "./app/index.tsx",
         },
         output: {
-          assetFileNames: 'assets/[name].[hash][extname]',
-          chunkFileNames: 'assets/[name].[hash].js',
-          entryFileNames: 'assets/[name].[hash].js',
-        }
+          assetFileNames: "assets/[name].[hash][extname]",
+          chunkFileNames: "assets/[name].[hash].js",
+          entryFileNames: "assets/[name].[hash].js",
+        },
       },
     },
   });

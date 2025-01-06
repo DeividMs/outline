@@ -5,6 +5,7 @@ import type { Context } from "koa";
 import Router from "koa-router";
 import { Profile } from "passport";
 import { slugifyDomain } from "@shared/utils/domains";
+import { parseEmail } from "@shared/utils/email";
 import accountProvisioner from "@server/commands/accountProvisioner";
 import { MicrosoftGraphError } from "@server/errors";
 import passportMiddleware from "@server/middlewares/passport";
@@ -28,7 +29,8 @@ if (env.AZURE_CLIENT_ID && env.AZURE_CLIENT_SECRET) {
       clientID: env.AZURE_CLIENT_ID,
       clientSecret: env.AZURE_CLIENT_SECRET,
       callbackURL: `${env.URL}/auth/azure.callback`,
-      useCommonEndpoint: true,
+      useCommonEndpoint: env.AZURE_TENANT_ID ? false : true,
+      tenant: env.AZURE_TENANT_ID ? env.AZURE_TENANT_ID : undefined,
       passReqToCallback: true,
       resource: env.AZURE_RESOURCE_APP_ID,
       // @ts-expect-error StateStore
@@ -67,9 +69,9 @@ if (env.AZURE_CLIENT_ID && env.AZURE_CLIENT_SECRET) {
           );
         }
 
-        if (!organizationResponse) {
+        if (!organizationResponse?.value?.length) {
           throw MicrosoftGraphError(
-            "Unable to load organization info from Microsoft Graph API"
+            `Unable to load organization info from Microsoft Graph API: ${organizationResponse.error?.message}`
           );
         }
 
@@ -91,7 +93,7 @@ if (env.AZURE_CLIENT_ID && env.AZURE_CLIENT_SECRET) {
         const team = await getTeamFromContext(ctx);
         const client = getClientFromContext(ctx);
 
-        const domain = email.split("@")[1];
+        const domain = parseEmail(email).domain;
         const subdomain = slugifyDomain(domain);
 
         const teamName = organization.displayName;

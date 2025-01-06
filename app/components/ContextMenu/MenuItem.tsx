@@ -6,12 +6,13 @@ import { mergeRefs } from "react-merge-refs";
 import { MenuItem as BaseMenuItem } from "reakit/Menu";
 import styled, { css } from "styled-components";
 import breakpoint from "styled-components-breakpoint";
+import { s } from "@shared/styles";
 import Text from "../Text";
 import MenuIconWrapper from "./MenuIconWrapper";
 
 type Props = {
   id?: string;
-  onClick?: (event: React.SyntheticEvent) => void | Promise<void>;
+  onClick?: (event: React.MouseEvent) => void | Promise<void>;
   active?: boolean;
   selected?: boolean;
   disabled?: boolean;
@@ -43,21 +44,21 @@ const MenuItem = (
 ) => {
   const content = React.useCallback(
     (props) => {
+      // Preventing default mousedown otherwise menu items do not work in Firefox,
+      // which triggers the hideOnClickOutside handler first via mousedown – hiding
+      // and un-rendering the menu contents.
+      const preventDefault = (ev: React.MouseEvent) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+      };
+
       const handleClick = async (ev: React.MouseEvent) => {
         hide?.();
 
         if (onClick) {
-          ev.preventDefault();
+          preventDefault(ev);
           await onClick(ev);
         }
-      };
-
-      // Preventing default mousedown otherwise menu items do not work in Firefox,
-      // which triggers the hideOnClickOutside handler first via mousedown – hiding
-      // and un-rendering the menu contents.
-      const handleMouseDown = (ev: React.MouseEvent) => {
-        ev.preventDefault();
-        ev.stopPropagation();
       };
 
       return (
@@ -66,16 +67,17 @@ const MenuItem = (
           $active={active}
           as={onClick ? "button" : as}
           onClick={handleClick}
-          onMouseDown={handleMouseDown}
+          onPointerDown={preventDefault}
+          onMouseDown={preventDefault}
           ref={mergeRefs([
             ref,
             props.ref as React.RefObject<HTMLAnchorElement>,
           ])}
         >
           {selected !== undefined && (
-            <MenuIconWrapper aria-hidden>
+            <SelectedWrapper aria-hidden>
               {selected ? <CheckmarkIcon /> : <Spacer />}
-            </MenuIconWrapper>
+            </SelectedWrapper>
           )}
           {icon && <MenuIconWrapper aria-hidden>{icon}</MenuIconWrapper>}
           <Title>{children}</Title>
@@ -107,6 +109,8 @@ const Title = styled.div`
   ${ellipsis()}
   flex-grow: 1;
   display: flex;
+  align-items: center;
+  gap: 8px;
 `;
 
 type MenuAnchorProps = {
@@ -151,7 +155,7 @@ export const MenuAnchorCSS = css<MenuAnchorProps>`
   @media (hover: hover) {
     &:hover,
     &:focus,
-    &.focus-visible {
+    &:focus-visible {
       color: ${props.theme.accentText};
       background: ${props.dangerous ? props.theme.danger : props.theme.accent};
       box-shadow: none;
@@ -193,6 +197,15 @@ export const MenuAnchorCSS = css<MenuAnchorProps>`
 
 export const MenuAnchor = styled.a`
   ${MenuAnchorCSS}
+`;
+
+const SelectedWrapper = styled.span`
+  width: 24px;
+  height: 24px;
+  margin-right: 4px;
+  margin-left: -8px;
+  flex-shrink: 0;
+  color: ${s("textSecondary")};
 `;
 
 export default React.forwardRef<HTMLAnchorElement, Props>(MenuItem);

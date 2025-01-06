@@ -18,7 +18,7 @@ import Switch from "~/components/Switch";
 import Text from "~/components/Text";
 import useBoolean from "~/hooks/useBoolean";
 import useCurrentTeam from "~/hooks/useCurrentTeam";
-import { Feature, FeatureFlags } from "~/utils/FeatureFlags";
+import { EmptySelectValue } from "~/types";
 
 const IconPicker = React.lazy(() => import("~/components/IconPicker"));
 
@@ -142,8 +142,10 @@ export const CollectionForm = observer(function CollectionForm_({
             <InputSelectPermission
               ref={field.ref}
               value={field.value}
-              onChange={(value: CollectionPermission) => {
-                field.onChange(value);
+              onChange={(
+                value: CollectionPermission | typeof EmptySelectValue
+              ) => {
+                field.onChange(value === EmptySelectValue ? null : value);
               }}
               note={t(
                 "The default access for workspace members, you can share with more users or groups later."
@@ -153,18 +155,16 @@ export const CollectionForm = observer(function CollectionForm_({
         />
       )}
 
-      {team.sharing &&
-        (!collection ||
-          FeatureFlags.isEnabled(Feature.newCollectionSharing)) && (
-          <Switch
-            id="sharing"
-            label={t("Public document sharing")}
-            note={t(
-              "Allow documents within this collection to be shared publicly on the internet."
-            )}
-            {...register("sharing")}
-          />
-        )}
+      {team.sharing && (
+        <Switch
+          id="sharing"
+          label={t("Public document sharing")}
+          note={t(
+            "Allow documents within this collection to be shared publicly on the internet."
+          )}
+          {...register("sharing")}
+        />
+      )}
 
       <Flex justify="flex-end">
         <Button

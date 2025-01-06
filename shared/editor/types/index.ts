@@ -8,8 +8,6 @@ import { Primitive } from "utility-types";
 export type PlainTextSerializer = (node: ProsemirrorNode) => string;
 
 export enum EventType {
-  SuggestionsMenuOpen = "suggestionMenuOpen",
-  SuggestionsMenuClose = "suggestionMenuClose",
   LinkToolbarOpen = "linkMenuOpen",
 }
 
@@ -21,6 +19,7 @@ export type MenuItem = {
   icon?: React.ReactElement;
   name?: string;
   title?: string;
+  subtitle?: string;
   shortcut?: string;
   keywords?: string;
   tooltip?: string;

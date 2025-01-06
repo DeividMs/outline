@@ -1,8 +1,10 @@
 import { faker } from "@faker-js/faker";
 import isNil from "lodash/isNil";
 import isNull from "lodash/isNull";
+import { Node } from "prosemirror-model";
 import randomstring from "randomstring";
 import { InferCreationAttributes } from "sequelize";
+import { DeepPartial } from "utility-types";
 import { v4 as uuidv4 } from "uuid";
 import {
   CollectionPermission,
@@ -11,9 +13,11 @@ import {
   IntegrationService,
   IntegrationType,
   NotificationEventType,
+  ProsemirrorData,
+  ReactionSummary,
   UserRole,
 } from "@shared/types";
-import { parser } from "@server/editor";
+import { parser, schema } from "@server/editor";
 import {
   Share,
   Team,
@@ -167,6 +171,7 @@ export async function buildGuestUser(overrides: Partial<User> = {}) {
     name: faker.person.fullName(),
     createdAt: new Date("2018-01-01T00:00:00.000Z"),
     lastActiveAt: new Date("2018-01-01T00:00:00.000Z"),
+    role: UserRole.Guest,
     ...overrides,
   });
 }
@@ -282,6 +287,10 @@ export async function buildCollection(
       teamId: overrides.teamId,
     });
     overrides.userId = user.id;
+  }
+
+  if (overrides.archivedAt && !overrides.archivedById) {
+    overrides.archivedById = overrides.userId;
   }
 
   return Collection.create({
@@ -403,8 +412,13 @@ export async function buildDocument(
 export async function buildComment(overrides: {
   userId: string;
   documentId: string;
+  parentCommentId?: string;
+  resolvedById?: string;
+  reactions?: ReactionSummary[];
 }) {
   const comment = await Comment.create({
+    resolvedById: overrides.resolvedById,
+    parentCommentId: overrides.parentCommentId,
     documentId: overrides.documentId,
     data: {
       type: "doc",
@@ -422,8 +436,19 @@ export async function buildComment(overrides: {
       ],
     },
     createdById: overrides.userId,
+    reactions: overrides.reactions,
   });
 
+  return comment;
+}
+
+export async function buildResolvedComment(
+  user: User,
+  overrides: Parameters<typeof buildComment>[0]
+) {
+  const comment = await buildComment(overrides);
+  comment.resolve(user);
+  await comment.save();
   return comment;
 }
 
@@ -481,10 +506,12 @@ export async function buildAttachment(
   const acl = overrides.acl || "public-read";
   const name = fileName || faker.system.fileName();
   return Attachment.create({
+    id,
     key: AttachmentHelper.getKey({ acl, id, name, userId: overrides.userId }),
     contentType: "image/png",
     size: 100,
     acl,
+    name,
     createdAt: new Date("2018-01-02T00:00:00.000Z"),
     updatedAt: new Date("2018-01-02T00:00:00.000Z"),
     ...overrides,
@@ -619,4 +646,11 @@ export async function buildPin(overrides: Partial<Pin> = {}): Promise<Pin> {
   }
 
   return Pin.create(overrides);
+}
+
+export function buildProseMirrorDoc(content: DeepPartial<ProsemirrorData>[]) {
+  return Node.fromJSON(schema, {
+    type: "doc",
+    content,
+  });
 }

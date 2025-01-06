@@ -5,6 +5,7 @@ import {
   BelongsTo,
   ForeignKey,
   Table,
+  Length,
 } from "sequelize-typescript";
 import Collection from "./Collection";
 import Document from "./Document";
@@ -18,6 +19,12 @@ class Star extends IdModel<
   InferAttributes<Star>,
   Partial<InferCreationAttributes<Star>>
 > {
+  static eventNamespace = "stars";
+
+  @Length({
+    max: 256,
+    msg: `index must be 256 characters or less`,
+  })
   @Column
   index: string | null;
 

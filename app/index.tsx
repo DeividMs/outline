@@ -1,6 +1,5 @@
 // eslint-disable-next-line import/no-unresolved
 import "vite/modulepreload-polyfill";
-import "focus-visible";
 import { LazyMotion } from "framer-motion";
 import { KBarProvider } from "kbar";
 import { Provider } from "mobx-react";
@@ -32,12 +31,6 @@ void PluginManager.loadPlugins();
 
 initI18n(env.DEFAULT_LANGUAGE);
 const element = window.document.getElementById("root");
-
-history.listen(() => {
-  requestAnimationFrame(() =>
-    window.dispatchEvent(new Event("location-changed"))
-  );
-});
 
 if (env.SENTRY_DSN) {
   initSentry(history);

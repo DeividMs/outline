@@ -1,7 +1,7 @@
 import * as React from "react";
 import { useHistory } from "react-router-dom";
+import { isModKey } from "@shared/utils/keyboard";
 import { isInternalUrl } from "@shared/utils/urls";
-import { isModKey } from "~/utils/keyboard";
 import { sharedDocumentPath } from "~/utils/routeHelpers";
 import { isHash } from "~/utils/urls";
 
@@ -39,20 +39,24 @@ export default function useEditorClickHandlers({ shareId }: Params) {
           return;
         }
 
+        // If we're navigating to an internal document link then prepend the
+        // share route to the URL so that the document is loaded in context
+        if (
+          shareId &&
+          navigateTo.includes("/doc/") &&
+          !navigateTo.includes(shareId)
+        ) {
+          navigateTo = sharedDocumentPath(shareId, navigateTo);
+        }
+
         // If we're navigating to a share link from a non-share link then open it in a new tab
-        if (shareId && navigateTo.startsWith("/s/")) {
+        if (!shareId && navigateTo.startsWith("/s/")) {
           window.open(href, "_blank");
           return;
         }
 
-        // If we're navigating to an internal document link then prepend the
-        // share route to the URL so that the document is loaded in context
-        if (shareId && navigateTo.includes("/doc/")) {
-          navigateTo = sharedDocumentPath(shareId, navigateTo);
-        }
-
         if (!isModKey(event) && !event.shiftKey) {
-          history.push(navigateTo);
+          history.push(navigateTo, { sidebarContext: "collections" }); // optimistic preference of "collections"
         } else {
           window.open(navigateTo, "_blank");
         }

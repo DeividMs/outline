@@ -1,4 +1,5 @@
 import { EmptyResultError } from "sequelize";
+import { CollectionPermission } from "@shared/types";
 import slugify from "@shared/utils/slugify";
 import { parser } from "@server/editor";
 import Document from "@server/models/Document";
@@ -8,7 +9,9 @@ import {
   buildCollection,
   buildTeam,
   buildUser,
+  buildGuestUser,
 } from "@server/test/factories";
+import UserMembership from "./UserMembership";
 
 beforeEach(() => {
   jest.resetAllMocks();
@@ -40,7 +43,7 @@ describe("#delete", () => {
   test("should soft delete and set last modified", async () => {
     const document = await buildDocument();
     const user = await buildUser();
-    await document.delete(user.id);
+    await document.delete(user);
 
     const newDocument = await Document.findByPk(document.id, {
       paranoid: false,
@@ -54,7 +57,7 @@ describe("#delete", () => {
       template: true,
     });
     const user = await buildUser();
-    await document.delete(user.id);
+    await document.delete(user);
     const newDocument = await Document.findByPk(document.id, {
       paranoid: false,
     });
@@ -67,7 +70,7 @@ describe("#delete", () => {
       archivedAt: new Date(),
     });
     const user = await buildUser();
-    await document.delete(user.id);
+    await document.delete(user);
     const newDocument = await Document.findByPk(document.id, {
       paranoid: false,
     });
@@ -78,7 +81,7 @@ describe("#delete", () => {
   it("should delete draft without collection", async () => {
     const user = await buildUser();
     const document = await buildDraftDocument();
-    await document.delete(user.id);
+    await document.delete(user);
     const deletedDocument = await Document.findByPk(document.id, {
       paranoid: false,
     });
@@ -205,6 +208,77 @@ describe("#findByPk", () => {
         rejectOnEmpty: true,
       })
     ).rejects.toThrow(EmptyResultError);
+  });
+});
+
+describe("findByIds", () => {
+  test("should return documents by ids", async () => {
+    const document1 = await buildDocument();
+    const document2 = await buildDocument();
+    const documents = await Document.findByIds([document1.id, document2.id]);
+    expect(documents.length).toBe(2);
+  });
+
+  test("should return documents filtered to user access", async () => {
+    const team = await buildTeam();
+    const user = await buildUser({ teamId: team.id });
+    const document1 = await buildDocument({ teamId: team.id });
+    const document2 = await buildDocument({ teamId: team.id });
+    const document3 = await buildDocument();
+    const documents = await Document.findByIds(
+      [document1.id, document2.id, document3.id],
+      {
+        userId: user.id,
+      }
+    );
+    expect(documents.length).toBe(2);
+  });
+
+  test("should return documents filtered to private collection access", async () => {
+    const team = await buildTeam();
+    const user = await buildUser({ teamId: team.id });
+    const collection = await buildCollection({
+      teamId: team.id,
+      permission: null,
+    });
+    const document1 = await buildDocument({
+      teamId: team.id,
+      collectionId: collection.id,
+    });
+    const document2 = await buildDocument({ teamId: team.id });
+    const document3 = await buildDocument();
+    const documents = await Document.findByIds(
+      [document1.id, document2.id, document3.id],
+      {
+        userId: user.id,
+      }
+    );
+    expect(documents.length).toBe(1);
+  });
+
+  test("should return documents filtered to guest access", async () => {
+    const team = await buildTeam();
+    const user = await buildGuestUser({ teamId: team.id });
+    const document1 = await buildDocument({ teamId: team.id });
+    const collection = await buildCollection({ teamId: team.id });
+    await UserMembership.create({
+      createdById: user.id,
+      collectionId: collection.id,
+      userId: user.id,
+      permission: CollectionPermission.Read,
+    });
+    const document2 = await buildDocument({
+      teamId: team.id,
+      collectionId: collection.id,
+    });
+    const document3 = await buildDocument();
+    const documents = await Document.findByIds(
+      [document1.id, document2.id, document3.id],
+      {
+        userId: user.id,
+      }
+    );
+    expect(documents.length).toBe(1);
   });
 });
 

@@ -21,9 +21,12 @@ export default createGlobalStyle<Props>`
     margin: 0;
     padding: 0;
     print-color-adjust: exact;
-    -webkit-print-color-adjust: exact;
     --pointer: ${(props) => (props.useCursorPointer ? "pointer" : "default")};
     overscroll-behavior-x: none;
+
+    @media print {
+      background: none !important;
+    }
   }
 
   body,
@@ -105,12 +108,7 @@ export default createGlobalStyle<Props>`
     border-top: 1px solid ${s("divider")};
   }
 
-  .js-focus-visible :focus:not(.focus-visible) {
-    outline: none;
-    outline-width: 0;
-  }
-
-  .js-focus-visible .focus-visible {
+  :focus-visible {
     outline-color: ${s("accent")};
     outline-offset: -1px;
     outline-width: initial;

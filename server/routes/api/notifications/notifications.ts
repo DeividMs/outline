@@ -76,6 +76,7 @@ router.post(
     const { eventType, archived } = ctx.input.body;
     const user = ctx.state.auth.user;
     let where: WhereOptions<Notification> = {
+      teamId: user.teamId,
       userId: user.id,
     };
     if (eventType) {
@@ -140,11 +141,9 @@ router.get(
     }
 
     if (!notification.viewedAt) {
-      await notificationUpdater({
+      await notificationUpdater(ctx, {
         notification,
         viewedAt: new Date(),
-        ip: ctx.request.ip,
-        transaction: ctx.state.transaction,
       });
     }
 
@@ -165,12 +164,10 @@ router.post(
     const notification = await Notification.findByPk(id);
     authorize(user, "update", notification);
 
-    await notificationUpdater({
+    await notificationUpdater(ctx, {
       notification,
       viewedAt,
       archivedAt,
-      ip: ctx.request.ip,
-      transaction: ctx.state.transaction,
     });
 
     ctx.body = {
@@ -190,6 +187,7 @@ router.post(
 
     const values: { [x: string]: any } = {};
     let where: WhereOptions<Notification> = {
+      teamId: user.teamId,
       userId: user.id,
     };
     if (!isUndefined(viewedAt)) {

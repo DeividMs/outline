@@ -1,3 +1,4 @@
+import { observer } from "mobx-react";
 import { transparentize } from "polished";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
@@ -5,43 +6,38 @@ import styled from "styled-components";
 import breakpoint from "styled-components-breakpoint";
 import { EditorStyleHelper } from "@shared/editor/styles/EditorStyleHelper";
 import { depths, s } from "@shared/styles";
-import Text from "~/components/Text";
+import { useDocumentContext } from "~/components/DocumentContext";
 import useWindowScrollPosition from "~/hooks/useWindowScrollPosition";
+import { decodeURIComponentSafe } from "~/utils/urls";
 
 const HEADING_OFFSET = 20;
 
-type Props = {
-  /** The headings to render in the contents. */
-  headings: {
-    title: string;
-    level: number;
-    id: string;
-  }[];
-};
-
-export default function Contents({ headings }: Props) {
+function Contents() {
   const [activeSlug, setActiveSlug] = React.useState<string>();
   const scrollPosition = useWindowScrollPosition({
     throttle: 100,
   });
+  const { headings } = useDocumentContext();
 
   React.useEffect(() => {
+    let activeId = headings.length > 0 ? headings[0].id : undefined;
+
     for (let key = 0; key < headings.length; key++) {
       const heading = headings[key];
       const element = window.document.getElementById(
-        decodeURIComponent(heading.id)
+        decodeURIComponentSafe(heading.id)
       );
 
       if (element) {
         const bounding = element.getBoundingClientRect();
-
         if (bounding.top > HEADING_OFFSET) {
-          const last = headings[Math.max(0, key - 1)];
-          setActiveSlug(last.id);
-          return;
+          break;
         }
+        activeId = heading.id;
       }
     }
+
+    setActiveSlug(activeId);
   }, [scrollPosition, headings]);
 
   // calculate the minimum heading level and adjust all the headings to make
@@ -54,26 +50,26 @@ export default function Contents({ headings }: Props) {
   const headingAdjustment = minHeading - 1;
   const { t } = useTranslation();
 
+  if (headings.length === 0) {
+    return <StickyWrapper />;
+  }
+
   return (
     <StickyWrapper>
       <Heading>{t("Contents")}</Heading>
-      {headings.length ? (
-        <List>
-          {headings
-            .filter((heading) => heading.level < 4)
-            .map((heading) => (
-              <ListItem
-                key={heading.id}
-                level={heading.level - headingAdjustment}
-                active={activeSlug === heading.id}
-              >
-                <Link href={`#${heading.id}`}>{heading.title}</Link>
-              </ListItem>
-            ))}
-        </List>
-      ) : (
-        <Empty>{t("Headings you add to the document will appear here")}</Empty>
-      )}
+      <List>
+        {headings
+          .filter((heading) => heading.level < 4)
+          .map((heading) => (
+            <ListItem
+              key={heading.id}
+              level={heading.level - headingAdjustment}
+              active={activeSlug === heading.id}
+            >
+              <Link href={`#${heading.id}`}>{heading.title}</Link>
+            </ListItem>
+          ))}
+      </List>
     </StickyWrapper>
   );
 }
@@ -94,10 +90,6 @@ const StickyWrapper = styled.div`
   min-width: 204px;
   width: 228px;
   min-height: 40px;
-  overflow-y: auto;
-  padding: 0 16px;
-  border-radius: 8px;
-
   @supports (backdrop-filter: blur(20px)) {
     backdrop-filter: blur(20px);
     background: ${(props) => transparentize(0.2, props.theme.background)};
@@ -115,10 +107,6 @@ const Heading = styled.h3`
   color: ${s("textTertiary")};
   letter-spacing: 0.03em;
   margin-top: 10px;
-`;
-
-const Empty = styled(Text)`
-  font-size: 14px;
 `;
 
 const ListItem = styled.li<{ level: number; active?: boolean }>`
@@ -147,3 +135,4 @@ const List = styled.ol`
   list-style: none;
 `;
 
+export default observer(Contents);

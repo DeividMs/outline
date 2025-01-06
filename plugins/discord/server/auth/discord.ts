@@ -1,4 +1,5 @@
 import passport from "@outlinewiki/koa-passport";
+import { isURL } from "class-validator";
 import type {
   RESTGetAPICurrentUserGuildsResult,
   RESTGetAPICurrentUserResult,
@@ -10,6 +11,7 @@ import Router from "koa-router";
 import { Strategy } from "passport-oauth2";
 import { languages } from "@shared/i18n";
 import { slugifyDomain } from "@shared/utils/domains";
+import { parseEmail } from "@shared/utils/email";
 import slugify from "@shared/utils/slugify";
 import accountProvisioner from "@server/commands/accountProvisioner";
 import { InvalidRequestError, TeamDomainRequiredError } from "@server/errors";
@@ -77,8 +79,7 @@ if (env.DISCORD_CLIENT_ID && env.DISCORD_CLIENT_SECRET) {
             /** We have the email scope, so this should never happen */
             throw InvalidRequestError("Discord profile email is missing");
           }
-          const parts = email.toLowerCase().split("@");
-          const domain = parts.length && parts[1];
+          const { domain } = parseEmail(email);
 
           if (!domain) {
             throw TeamDomainRequiredError();
@@ -129,9 +130,18 @@ if (env.DISCORD_CLIENT_ID && env.DISCORD_CLIENT_SECRET) {
               }
             }
 
-            /** Guild Name */
             teamName = guild.name;
             subdomain = slugify(guild.name);
+
+            /** If the guild name is a URL, use the subdomain instead – we do not allow URLs in names. */
+            if (
+              isURL(teamName, {
+                require_host: false,
+                require_protocol: false,
+              })
+            ) {
+              teamName = subdomain;
+            }
 
             /** Fetch the user's member object in the server for nickname and roles */
             const guildMember: RESTGetCurrentUserGuildMemberResult =

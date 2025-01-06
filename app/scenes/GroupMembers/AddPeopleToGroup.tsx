@@ -6,18 +6,20 @@ import { toast } from "sonner";
 import Group from "~/models/Group";
 import User from "~/models/User";
 import Invite from "~/scenes/Invite";
-import Avatar from "~/components/Avatar";
-import { AvatarSize } from "~/components/Avatar/Avatar";
+import { Avatar, AvatarSize } from "~/components/Avatar";
 import ButtonLink from "~/components/ButtonLink";
+import DelayedMount from "~/components/DelayedMount";
 import Empty from "~/components/Empty";
 import Flex from "~/components/Flex";
 import Input from "~/components/Input";
+import PlaceholderList from "~/components/List/Placeholder";
 import Modal from "~/components/Modal";
 import PaginatedList from "~/components/PaginatedList";
 import Text from "~/components/Text";
 import useBoolean from "~/hooks/useBoolean";
 import useCurrentTeam from "~/hooks/useCurrentTeam";
 import usePolicy from "~/hooks/usePolicy";
+import useRequest from "~/hooks/useRequest";
 import useStores from "~/hooks/useStores";
 import GroupMemberListItem from "./components/GroupMemberListItem";
 
@@ -29,7 +31,7 @@ type Props = {
 function AddPeopleToGroup(props: Props) {
   const { group } = props;
 
-  const { users, groupMemberships } = useStores();
+  const { users, groupUsers } = useStores();
   const team = useCurrentTeam();
   const { t } = useTranslation();
   const can = usePolicy(team);
@@ -55,7 +57,7 @@ function AddPeopleToGroup(props: Props) {
 
   const handleAddUser = async (user: User) => {
     try {
-      await groupMemberships.create({
+      await groupUsers.create({
         groupId: group.id,
         userId: user.id,
       });
@@ -72,6 +74,14 @@ function AddPeopleToGroup(props: Props) {
       toast.error(t("Could not add user"));
     }
   };
+
+  const { loading } = useRequest(
+    React.useCallback(
+      () => groupUsers.fetchAll({ id: group.id }),
+      [groupUsers, group]
+    ),
+    true
+  );
 
   return (
     <Flex column>
@@ -100,24 +110,30 @@ function AddPeopleToGroup(props: Props) {
         autoFocus
         flex
       />
-      <PaginatedList
-        empty={
-          query ? (
-            <Empty>{t("No people matching your search")}</Empty>
-          ) : (
-            <Empty>{t("No people left to add")}</Empty>
-          )
-        }
-        items={users.notInGroup(group.id, query)}
-        fetch={query ? undefined : users.fetchPage}
-        renderItem={(item: User) => (
-          <GroupMemberListItem
-            key={item.id}
-            user={item}
-            onAdd={() => handleAddUser(item)}
-          />
-        )}
-      />
+      {loading ? (
+        <DelayedMount>
+          <PlaceholderList count={5} />
+        </DelayedMount>
+      ) : (
+        <PaginatedList
+          empty={
+            query ? (
+              <Empty>{t("No people matching your search")}</Empty>
+            ) : (
+              <Empty>{t("No people left to add")}</Empty>
+            )
+          }
+          items={users.notInGroup(group.id, query)}
+          fetch={query ? undefined : users.fetchPage}
+          renderItem={(item: User) => (
+            <GroupMemberListItem
+              key={item.id}
+              user={item}
+              onAdd={() => handleAddUser(item)}
+            />
+          )}
+        />
+      )}
       <Modal
         title={t("Invite people")}
         onRequestClose={handleInviteModalClose}

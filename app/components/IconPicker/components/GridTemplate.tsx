@@ -4,9 +4,9 @@ import React from "react";
 import styled from "styled-components";
 import { IconType } from "@shared/types";
 import { IconLibrary } from "@shared/utils/IconLibrary";
+import { Emoji } from "~/components/Emoji";
 import Text from "~/components/Text";
 import { TRANSLATED_CATEGORIES } from "../utils";
-import { Emoji } from "./Emoji";
 import Grid from "./Grid";
 import { IconButton } from "./IconButton";
 
@@ -16,7 +16,7 @@ import { IconButton } from "./IconButton";
 const BUTTON_SIZE = 32;
 
 type OutlineNode = {
-  type: IconType.Outline;
+  type: IconType.SVG;
   name: string;
   color: string;
   initial: string;
@@ -66,12 +66,12 @@ const GridTemplate = (
       );
 
       const items = node.icons.map((item) => {
-        if (item.type === IconType.Outline) {
+        if (item.type === IconType.SVG) {
           return (
             <IconButton
               key={item.name}
               onClick={() => onIconSelect({ id: item.name, value: item.name })}
-              delay={item.delay}
+              style={{ "--delay": `${item.delay}ms` } as React.CSSProperties}
             >
               <Icon as={IconLibrary.getComponent(item.name)} color={item.color}>
                 {item.initial}
@@ -85,7 +85,9 @@ const GridTemplate = (
             key={item.id}
             onClick={() => onIconSelect({ id: item.id, value: item.value })}
           >
-            <Emoji>{item.value}</Emoji>
+            <Emoji width={24} height={24}>
+              {item.value}
+            </Emoji>
           </IconButton>
         );
       });

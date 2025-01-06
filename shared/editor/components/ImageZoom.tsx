@@ -29,6 +29,16 @@ export const ImageZoom = ({ caption, children }: Props) => {
     </span>
   );
 
+  const ZoomContent = React.useMemo(
+    () =>
+      function ZoomContentComponent(
+        props: Omit<React.ComponentProps<typeof Lightbox>, "caption">
+      ) {
+        return <Lightbox caption={caption} {...props} />;
+      },
+    [caption]
+  );
+
   if (!isActivated) {
     return fallback;
   }
@@ -36,11 +46,8 @@ export const ImageZoom = ({ caption, children }: Props) => {
   return (
     <React.Suspense fallback={fallback}>
       <Styles />
-      <EventBoundary>
-        <Zoom
-          zoomMargin={EditorStyleHelper.padding}
-          ZoomContent={(props) => <Lightbox caption={caption} {...props} />}
-        >
+      <EventBoundary captureEvents="click">
+        <Zoom zoomMargin={EditorStyleHelper.padding} ZoomContent={ZoomContent}>
           <div>{children}</div>
         </Zoom>
       </EventBoundary>
@@ -72,8 +79,8 @@ const Caption = styled("figcaption")<{ $loaded: boolean }>`
   bottom: 0;
   left: 50%;
   transform: translateX(-50%);
-  margin-bottom: 4px;
-  font-size: 15px;
+  margin-bottom: 8px;
+  font-size: 14px;
   opacity: ${(props) => (props.$loaded ? 1 : 0)};
   transition: opacity 250ms;
 
@@ -82,9 +89,6 @@ const Caption = styled("figcaption")<{ $loaded: boolean }>`
 `;
 
 const Styles = createGlobalStyle`
-  [data-rmiz] {
-    position: relative;
-  }
   [data-rmiz-ghost] {
     position: absolute;
     pointer-events: none;
@@ -119,6 +123,9 @@ const Styles = createGlobalStyle`
   [data-rmiz-content="found"] [role="img"],
   [data-rmiz-content="found"] [data-zoom] {
     cursor: zoom-in;
+  }
+  [data-rmiz-modal] {
+    outline: none;
   }
   [data-rmiz-modal]::backdrop {
     display: none;
