@@ -59,34 +59,10 @@ if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET) {
         ) => void
       ) {
         try {
-          // "domain" is the Google Workspaces domain
-          const domain = profile._json.hd;
-          const team = await getTeamFromContext(ctx);
-          const client = getClientFromContext(ctx);
-
-          // Remove the check for personal Gmail accounts
-          /*
-          if (!domain && !team) {
-            const userExists = await User.count({
-              where: { email: profile.email.toLowerCase() },
-              include: [
-                {
-                  association: "team",
-                  required: true,
-                },
-              ],
-            });
-
-            if (!userExists) {
-              throw GmailAccountCreationError();
-            }
-
-            throw TeamDomainRequiredError();
-          }
-          */
-
-          const subdomain = domain ? slugifyDomain(domain) : "";
-          const teamName = subdomain && subdomain.length >= 2 && subdomain.length <= 255 ? capitalize(subdomain) : "My Team";
+          // Definir `domain` vazio para evitar bloqueios
+          const domain = ""; // Remove qualquer dependência de domínio
+          const subdomain = ""; // Não configurar subdomínio para e-mails pessoais
+          const teamName = "My Team"; // Nome padrão para o time
 
           const avatarUrl = profile.picture.replace("=s96-c", "=s128-c");
           const locale = profile._json.locale;
@@ -104,13 +80,18 @@ if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET) {
             },
             user: {
               email: profile.email,
-              name: profile.displayName && profile.displayName.length >= 2 && profile.displayName.length <= 255 ? profile.displayName : "Default User",
+              name:
+                profile.displayName &&
+                profile.displayName.length >= 2 &&
+                profile.displayName.length <= 255
+                  ? profile.displayName
+                  : "Default User",
               language,
               avatarUrl,
             },
             authenticationProvider: {
               name: config.id,
-              providerId: domain ?? "",
+              providerId: "", // Remove qualquer validação do domínio aqui também
             },
             authentication: {
               providerId: profile.id,
@@ -140,4 +121,3 @@ if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET) {
 }
 
 export default router;
-
